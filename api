@@ -1,0 +1,85 @@
+
+const express = require("express");
+const app = express();
+const https = require("https");
+const hbs = require("hbs");
+const url="https://open.er-api.com/v6/latest";
+const fs = require("fs");
+const path = require("path");
+const router = express.Router();
+app.set('view engine','hbs');
+const bodyParser = require("body-parser");
+
+app.use(bodyParser.urlencoded({ extended: true })); 
+app.use("/",router);
+
+
+app.use(express.static(path.join(__dirname, "public")))
+
+
+app.get("/" , (req,resp) => {
+    https.get(url, (res) => {
+        let body = "";
+        res.on("data",(chunk)=>{
+            body +=chunk;
+        });
+
+        res.on("end",()=>{
+            try{
+                let api_data = JSON.parse(body);
+                resp.render("index",{data: api_data.rates});
+            }
+            catch(err){
+                console.log(err);
+            }
+        }).on("error",(err)=>{
+            console.error(err);
+        });
+    })
+})
+app.get("/currencychanger", (req, res) => {
+    let curr = req.query.country;
+    let y = [];
+    
+    https.get(`${url}/${curr}`, (resp) => {
+        let body = "";
+        try {
+            resp.on("data", (chunk) => {
+                body += chunk;
+            })
+            resp.on("end", () => {
+                let api_dta = JSON.parse(body);
+                for (let i in api_dta.rates) {
+                    let info = {};
+                    info.currencycode = i;
+                    info.rates = api_dta.rates[i];
+                    if (fs.existsSync(`./public/img/${i}.webp`)) {
+                        info.img = `${i}.webp`;
+                    }
+                    else if (fs.existsSync(`./public/img/${i}.png`)) {
+                        info.img = `${i}.png`;
+                    }
+                    y.push(info);
+                }
+                console.log(y);
+                res.render("img", {data: api_dta.rates, img: y});
+            })
+
+            app.post('/search', function(req, res){
+                
+                //Do Something
+                res.redirect('/');//redirect to the page from where request came
+             });
+
+        } catch (err) {
+            console.log(err);
+        }
+    }).on("error", (err) => {
+        console.log(err);
+    });
+});
+
+
+app.listen(6815,()=>{
+  console.log("server start...");  
+});
